@@ -36,6 +36,18 @@
         const videoElement = document.getElementById('video')
         applyVideoTransform(videoElement, Edrys.module.stationConfig)
 
+        // Default to webcam
+        startWebcamStream()
+      }
+
+      function startWebcamStream() {
+        const videoElement = document.getElementById('video')
+
+        // Stop any existing stream
+        if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach((track) => track.stop())
+        }
+
         navigator.mediaDevices
           .getUserMedia({
             video: Edrys.module.stationConfig?.video ?? true,
@@ -46,22 +58,57 @@
             videoElement.autoplay = true
 
             await Edrys.sendStream('todo', stream)
+
+            // Update active button
+            document.getElementById('webcamBtn').classList.add('active')
+            document.getElementById('screenBtn').classList.remove('active')
           })
           .catch(console.error)
+      }
 
-        // For screen sharing
-        /*navigator.mediaDevices.getDisplayMedia({
+      function startScreenStream() {
+        const videoElement = document.getElementById('video')
+
+        // Stop any existing stream
+        if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach((track) => track.stop())
+        }
+
+        navigator.mediaDevices
+          .getDisplayMedia({
             video: {
-                cursor: "always"
+              cursor: 'always',
             },
-            audio: false
-          }).then(async (stream) => {
-            videoElement.srcObject = stream;
-            videoElement.autoplay = true;
+            audio: Edrys.module.stationConfig?.audio ?? false,
+          })
+          .then(async (stream) => {
+            videoElement.srcObject = stream
+            videoElement.autoplay = true
 
-            await Edrys.sendStream(stream);
-          }).catch(console.error);
-        */
+            await Edrys.sendStream('todo', stream)
+
+            // Update active button
+            document.getElementById('webcamBtn').classList.remove('active')
+            document.getElementById('screenBtn').classList.add('active')
+
+            // Listen for the end of screen sharing
+            stream.getVideoTracks()[0].onended = () => {
+              switchToWebcam()
+            }
+          })
+          .catch(console.error)
+      }
+
+      function switchToWebcam() {
+        if (Edrys.role === 'station') {
+          startWebcamStream()
+        }
+      }
+
+      function switchToScreen() {
+        if (Edrys.role === 'station') {
+          startScreenStream()
+        }
       }
 
       function startClient() {
@@ -134,6 +181,25 @@
         padding-right: 15px;
         background-color: rgba(0, 0, 0, 0.1);
       }
+
+      .stream-controls {
+        position: absolute;
+        top: 22px;
+        right: 22px;
+        z-index: 999;
+      }
+
+      .stream-controls button {
+        position: relative;
+        top: unset;
+        left: unset;
+        margin-left: 5px;
+      }
+
+      .stream-controls button.active {
+        background-color: rgba(0, 100, 255, 0.3);
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
@@ -145,6 +211,12 @@
       >
         ⟳
       </button>
+      <div class="stream-controls">
+        <button id="webcamBtn" class="active" onclick="switchToWebcam()">
+          Webcam
+        </button>
+        <button id="screenBtn" onclick="switchToScreen()">Screen</button>
+      </div>
     </div>
   </body>
 </html>
